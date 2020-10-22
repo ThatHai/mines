@@ -9,7 +9,7 @@ repositories {
 
 dependencies {
   // Use TestNG framework, also requires calling test.useTestNG() below
-  testImplementation 'org.testng:testng:7.2.0'
+  testImplementation 'org.testng:testng:7.3.0'
 
   // This dependency is used by the application.
   implementation 'com.google.guava:guava:29.0-jre'
@@ -21,6 +21,9 @@ application {
 }
 
 tasks.named('test') {
-  // Use TestNG for unit tests.
   useTestNG()
+
+  testLogging {
+    events "passed", "skipped", "failed"
+  }
 }
