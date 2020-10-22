@@ -70,7 +70,7 @@ public class BoardTest {
 
     // place the mines at the same locations in our board
     for (Cell mine: board.getMines()) {
-      expected[mine.row][mine.col] = -1;
+      expected[mine.row()][mine.col()] = -1;
     }
 
     // with the mines in place, we'll just use the brute force method to compute the
@@ -113,8 +113,8 @@ public class BoardTest {
     Iterator<Cell> iterator = board.iterator();
     while (iterator.hasNext()) {
       Cell cell = iterator.next();
-      assertEquals(cell.value, expected[cell.row][cell.col],
-                   "Cell (" + cell.row + "," + cell.col + ")");
+      assertEquals(cell.value(), expected[cell.row()][cell.col()],
+                   "Cell (" + cell.row() + "," + cell.col() + ")");
     }
   }
 }

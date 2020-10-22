@@ -14,7 +14,7 @@ import java.util.Objects;
  * Represents a cell, or square, in the mines board.
  */
 class Cell {
-  int row, col, value;
+  private final int row, col, value;
 
   Cell(int row, int col, int value) {
     this.row = row;
