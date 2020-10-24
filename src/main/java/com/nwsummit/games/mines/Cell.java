@@ -11,27 +11,51 @@ package com.nwsummit.games.mines;
 import java.util.Objects;
 
 /**
- * Represents a cell, or square, in the mines board.
+ * Represents a cell, or square, in a {@link MinesBoard}. The cell's location on the
+ * board is given by its {@link #row} and {@link #col}. Its {@link #value} indicates
+ * whether it's a mine (-1), or the number of mines that the cell is adjascent to.
  */
 class Cell {
-  private final int row, col, value;
+  private final int row;
+  private final int col;
+  private int value;
+  private State state;
 
   Cell(int row, int col, int value) {
     this.row = row;
     this.col = col;
     this.value = value;
+    this.state = State.UNOPENED;
   }
 
+  /**
+   * The mines board's row (zero-base) where this cell is.
+   */
   int row() {
     return row;
   }
 
+  /**
+   * The mines board's column (zero-base) where this cell is.
+   */
   int col() {
     return col;
   }
 
+  State state() {
+    return state;
+  }
+
+  void setState(State state) {
+    this.state = state;
+  }
+
   int value() {
     return value;
+  }
+
+  void incrementValue() {
+    value += 1;
   }
 
   @Override
@@ -51,4 +75,10 @@ class Cell {
       && this.col == that.col
       && this.value == that.value;
   }
+
+  @Override
+  public String toString() {
+    return "Cell[" + row + "," + col + "," + value + "]";
+  }
+
 }
