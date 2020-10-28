@@ -18,6 +18,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Class representing a mines board. A mines board is characterised by
@@ -25,14 +26,16 @@ import java.util.Set;
  * <li>the number of rows and columns, or size of the board.</li>
  * <li>the number of mines.</li>
  * </ul>
+ * Each square on the board is represented by a {@link Cell} and the board can be iterated
+ * via an {@link #iterator}.
+ * @see Cell
  */
 class MinesBoard implements Iterable<MinesBoard.Cell> {
+
   /**
    * Value representing a mine.
    */
   static final int MINE = -1;
-
-  private static final Random RANDOM = new Random(System.currentTimeMillis());
 
   // number of rows and columns
   private final int rows, columns;
@@ -40,6 +43,13 @@ class MinesBoard implements Iterable<MinesBoard.Cell> {
   private final Cell[][] board;
 
   private Set<Cell> mines;
+
+  /**
+   * The number of remaining unopen/unresolved cells.
+   */
+  private int unopen;
+
+  private boolean kaboom;
 
   // for testing
   MinesBoard(int rows, int columns) {
@@ -50,7 +60,12 @@ class MinesBoard implements Iterable<MinesBoard.Cell> {
     this.columns = columns;
     this.mines = new HashSet<>();
     this.board = new Cell[rows][columns];
-    initialize();
+
+    for (int r = 0; r < rows; r++) {
+      for (int c = 0; c < columns; c++) {
+        board[r][c] = new Cell(r, c);
+      }
+    }
   }
 
   /**
@@ -60,20 +75,14 @@ class MinesBoard implements Iterable<MinesBoard.Cell> {
    * @param columns number of columns.
    * @param mines number of mines.
    */
-  MinesBoard(int rows, int columns, int mines) {
+  public MinesBoard(int rows, int columns, int mines) {
     this(rows, columns);
-    placeMines(mines);
-  }
 
-  /**
-   * Initialize the whole board with no mine.
-   */
-  private void initialize() {
-    for (int r = 0; r < rows; r++) {
-      for (int c = 0; c < columns; c++) {
-        board[r][c] = new Cell(r, c);
-      }
-    }
+    int maxCells = rows * columns;
+    checkArgument(mines > 0 && mines < maxCells,
+                  "Invalid 0 < mines=%d < (rows x colums)=%d", mines, maxCells);
+    placeMines(mines);
+    unopen = maxCells - mines;
   }
 
   /**
@@ -81,12 +90,10 @@ class MinesBoard implements Iterable<MinesBoard.Cell> {
    * @param nMines the number of mines to be placed.
    */
   private void placeMines(int nMines) {
-    checkArgument(nMines > 0 && nMines <= (rows * columns), "Invalid number of mines: %d", nMines);
-    mines.clear();
+    Random random = new Random(System.nanoTime());
     do {
-      // randomly pick a spot on the board
-      int r = RANDOM.nextInt(rows);
-      int c = RANDOM.nextInt(columns);
+      int r = random.nextInt(rows);
+      int c = random.nextInt(columns);
       if (!board[r][c].isMine())
         placeMine(r, c);
     } while (mines.size() < nMines);
@@ -98,23 +105,18 @@ class MinesBoard implements Iterable<MinesBoard.Cell> {
    */
   // visible for testing
   void placeMine(int row, int col) {
-    validate(row, col);
-
     Cell mine = board[row][col];
     mine.value = MINE;
     mines.add(mine);
 
     // update the mines count of the cells adjascent to the mine
-    Iterator<Cell> neighbours = neighbourIterator(mine);
-    while (neighbours.hasNext()) {
-      Cell adjCell = neighbours.next();
-      if (!adjCell.isMine())
-        adjCell.incrementValue();
+    for (Cell adjCell: neighboursOf(mine, Predicate.not(Cell::isMine))) {
+      adjCell.value += 1;
     }
   }
 
   // visible for testing
-  Cell get(int row, int col) {
+  public Cell get(int row, int col) {
     validate(row, col);
     return board[row][col];
   }
@@ -137,48 +139,73 @@ class MinesBoard implements Iterable<MinesBoard.Cell> {
     validate(row, col);
 
     Cell cell = board[row][col];
-    // nothing to open if already opened of flagged
-    if (cell.state == State.OPENED || cell.state == State.FLAGGED) {
+    // nothing to open if flagged or already opened but not having full count flags
+    if (cell.state == State.FLAGGED || (cell.state == State.OPEN && !isFullyFlagged(cell))) {
       return Collections.emptyList();
     }
 
-    cell.state = State.OPENED;
-
     if (cell.isMine()) {
+      cell.state = State.OPEN;
+      kaboom = true;
       return null;
     }
 
-    // nothing else to open if the cell is adjascent to one or more mines
-    if (cell.value() > 0) {
-      return Collections.singletonList(cell);
-    }
-
-    // if the opened cell is numbered (value 1..8), then cell opening stops there
-    // if the opened cell is not adjascent to any mines, then open its neighbouring cells
-    //
     // cells opening can be seen as a breadth frist search in a graph, with cells being vertices.
     LinkedList<Cell> openedCells = new LinkedList<>();
-    openedCells.add(cell);
 
-    // queue is used to store the (adjascent) cells to work on at next iteration
+    // queue is used to store the (adjascent) cells to open at next iteration
     LinkedList<Cell> queue = new LinkedList<>();
-    queue.add(cell);
 
+    Predicate<Cell> unopenedAndNotFlagged = Predicate.not(Cell::isFlagged).and(Cell::isUnopen);
+    if (cell.state == State.UNOPEN) {
+      queue.add(cell);
+    } else {
+      // already OPENED then it must be fully flagged, => start by opening its UNOPENED
+      // neighours because the algo doesn't open neighbours of a numbered cell
+      queue.addAll(neighboursOf(cell, unopenedAndNotFlagged));
+    }
+
+    // 1. if the cell to open is numbered (value 1..8), then cells opening stops there
+    // 2. if the cell to open is not adjascent to any mines, then open its neighbouring cells
+    // 3. repeat 1 & 2 until done
     while (!queue.isEmpty()) {
       cell = queue.poll();
+      // might have been opened since last queued
+      if (cell.isOpen()) {
+        continue;
+      }
+      cell.state = State.OPEN;
+      openedCells.add(cell);
+      unopen -= 1;
+      if (cell.isMine()) {
+        kaboom = true;
+        break; // game over
+      }
+
       if (cell.value() == 0) {
-        Iterator<Cell> neighbours = neighbourIterator(cell);
-        while (neighbours.hasNext()) {
-          Cell neighbour = neighbours.next();
-          if (neighbour.state == State.UNOPENED) {
-            neighbour.state = State.OPENED;
-            openedCells.add(neighbour);
-            queue.add(neighbour); // to work on at next open iteration
-          }
-        }
+        queue.addAll(neighboursOf(cell, unopenedAndNotFlagged)); // to work on next
       }
     }
     return openedCells;
+  }
+
+  public boolean kaboom() {
+    return kaboom;
+  }
+
+  /**
+   * Whether all the mines have been swept.
+   */
+  public boolean isSwept() {
+    if (unopen < 0)
+      throw new IllegalStateException("Unopen count: " + unopen);
+    return unopen == 0;
+  }
+
+  // visible for testing
+  boolean isFullyFlagged(Cell cell) {
+    int flagCount = neighboursOf(cell, Cell::isFlagged).size();
+    return flagCount >= cell.value;
   }
 
   private void checkArgument(boolean condition, String message, Object ... args) {
@@ -197,13 +224,27 @@ class MinesBoard implements Iterable<MinesBoard.Cell> {
     return new BoardIterator();
   }
 
-  Iterator<Cell> neighbourIterator(int row, int col) {
+  List<Cell> neighboursOf(int row, int col) {
     validate(row, col);
-    return neighbourIterator(board[row][col]);
+    return neighboursOf(board[row][col], (cell) -> true);
   }
 
-  private Iterator<Cell> neighbourIterator(Cell cell) {
-    return new NeighbourIterator(cell);
+  /**
+   * Returns the cells adjascent to the specified cell.
+   */
+  private List<Cell> neighboursOf(Cell cell, Predicate<Cell> predicate) {
+    LinkedList<Cell> neighbours = new LinkedList<>();
+    int rmax = Math.min(cell.row() + 1, MinesBoard.this.rows -1);
+    int cmax = Math.min(cell.col() + 1, MinesBoard.this.columns -1);
+    for (int r = Math.max(cell.row() - 1, 0); r <= rmax; r++) {
+      for (int c = Math.max(cell.col() - 1, 0); c <= cmax; c++) {
+        if (predicate.test(board[r][c])) {
+          neighbours.add(board[r][c]);
+        }
+      }
+    }
+    neighbours.remove(cell);
+    return neighbours;
   }
 
   /**
@@ -258,41 +299,10 @@ class MinesBoard implements Iterable<MinesBoard.Cell> {
     }
   }
 
-  class NeighbourIterator implements Iterator<Cell> {
-    private Cell[] neighbours;
-    private int i = 0;
-
-    NeighbourIterator(Cell cell) {
-      LinkedList<Cell> neighbourList = new LinkedList<>();
-      int rmax = Math.min(cell.row() + 1, MinesBoard.this.rows -1);
-      int cmax = Math.min(cell.col() + 1, MinesBoard.this.columns -1);
-      for (int r = Math.max(cell.row() - 1, 0); r <= rmax; r++) {
-        for (int c = Math.max(cell.col() - 1, 0); c <= cmax; c++) {
-          neighbourList.add(board[r][c]);
-        }
-      }
-      neighbourList.remove(cell);
-      neighbours = neighbourList.toArray(new Cell[neighbourList.size()]);
-    }
-
-    @Override
-    public boolean hasNext() {
-      return i < neighbours.length;
-    }
-
-    @Override
-    public Cell next() {
-      if (i >= neighbours.length) {
-        throw new NoSuchElementException();
-      }
-      return neighbours[i++];
-    }
-
-    int size() {
-      return neighbours.length;
-    }
-  }
-
+  /**
+   * Represents a cell/square on the mines board. A cell has a {@link #value} that is either
+   * a MINE, or the number of mines surrounding the cell.
+   */
   class Cell {
     private final int row;
     private final int col;
@@ -303,7 +313,7 @@ class MinesBoard implements Iterable<MinesBoard.Cell> {
       this.row = row;
       this.col = col;
       this.value = 0;
-      this.state = State.UNOPENED;
+      this.state = State.UNOPEN;
     }
 
     /**
@@ -324,22 +334,33 @@ class MinesBoard implements Iterable<MinesBoard.Cell> {
       return value;
     }
 
-    private void incrementValue() {
-      value += 1;
-    }
-
     boolean isMine() {
       return value == MINE;
     }
 
-    State state() {
-      return state;
+    boolean isOpen() {
+      return state == State.OPEN;
     }
 
+    boolean isUnopen() {
+      return state == State.UNOPEN;
+    }
+
+    boolean isFlagged() {
+      return state == State.FLAGGED;
+    }
+
+    /**
+     * Flags the cell as being a mine. If the cell is already open, it's a no-op.
+     * If the cell was flagged, this toggles off the flag, i.e. back to unopen.
+     *
+     * @return the resulting state of the cell.
+     */
     State flag() {
-      if (state == State.OPENED)
-        return State.OPENED;
-      state = (state == State.UNOPENED) ? State.FLAGGED : State.UNOPENED;
+      if (state == State.OPEN) {
+        return State.OPEN;
+      }
+      state = (state == State.UNOPEN) ? State.FLAGGED : State.UNOPEN;
       return state;
     }
 
@@ -350,10 +371,8 @@ class MinesBoard implements Iterable<MinesBoard.Cell> {
 
     @Override
     public boolean equals(Object obj) {
-      if (this == obj)
-        return true;
-      if (obj == null || getClass() != obj.getClass())
-        return false;
+      if (this == obj) return true;
+      if (obj == null || getClass() != obj.getClass()) return false;
 
       Cell that = (Cell) obj;
       return this.row == that.row

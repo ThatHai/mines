@@ -8,11 +8,12 @@
  */
 package com.nwsummit.games.mines;
 
-import static org.junit.Assert.assertTrue;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertSame;
+import static org.testng.Assert.assertTrue;
 
 import java.util.Collections;
 import java.util.Iterator;
@@ -21,7 +22,6 @@ import java.util.Random;
 import java.util.Set;
 
 import com.google.common.collect.Sets;
-import com.nwsummit.games.mines.MinesBoard.NeighbourIterator;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -64,41 +64,41 @@ public class MinesBoardTest {
   }
 
   @Test
-  public void testNeighbourIterator_CornerCells() {
+  public void testNeighbourOf_CornerCells() {
     MinesBoard board = new MinesBoard(4, 4, 1);
-    NeighbourIterator neighbours = (NeighbourIterator)board.neighbourIterator(0, 0);
+    List<MinesBoard.Cell> neighbours = board.neighboursOf(0, 0);
     assertEquals(neighbours.size(), 3);
 
-    neighbours = (NeighbourIterator)board.neighbourIterator(3, 0);
+    neighbours = board.neighboursOf(3, 0);
     assertEquals(neighbours.size(), 3);
 
-    neighbours = (NeighbourIterator)board.neighbourIterator(0, 3);
+    neighbours = board.neighboursOf(0, 3);
     assertEquals(neighbours.size(), 3);
 
-    neighbours = (NeighbourIterator)board.neighbourIterator(3, 3);
+    neighbours = board.neighboursOf(3, 3);
     assertEquals(neighbours.size(), 3);
   }
 
   @Test
-  public void testNeighbourIterator_EdgeCells() {
+  public void testNeighbourOf_EdgeCells() {
     MinesBoard board = new MinesBoard(4, 4, 1);
-    NeighbourIterator neighbours = (NeighbourIterator)board.neighbourIterator(0, 2);
+    List<MinesBoard.Cell> neighbours = board.neighboursOf(0, 2);
     assertEquals(neighbours.size(), 5);
 
-    neighbours = (NeighbourIterator)board.neighbourIterator(1, 0);
+    neighbours = board.neighboursOf(1, 0);
     assertEquals(neighbours.size(), 5);
 
-    neighbours = (NeighbourIterator)board.neighbourIterator(3, 2);
+    neighbours = board.neighboursOf(3, 2);
     assertEquals(neighbours.size(), 5);
 
-    neighbours = (NeighbourIterator)board.neighbourIterator(2, 3);
+    neighbours = board.neighboursOf(2, 3);
     assertEquals(neighbours.size(), 5);
   }
 
   @Test
-  public void testNeighbourIterator_InsideCells() {
+  public void testNeighbourOf_InsideCells() {
     MinesBoard board = new MinesBoard(4, 4, 1);
-    NeighbourIterator neighbours = (NeighbourIterator)board.neighbourIterator(1, 2);
+    List<MinesBoard.Cell> neighbours = board.neighboursOf(1, 2);
     assertEquals(neighbours.size(), 8);
   }
 
@@ -120,9 +120,7 @@ public class MinesBoardTest {
         continue;
 
       int mineCount = 0;
-      Iterator<MinesBoard.Cell> neighbourIterator = board.neighbourIterator(cell.row(), cell.col());
-      while (neighbourIterator.hasNext()) {
-        MinesBoard.Cell neighbour = neighbourIterator.next();
+      for (MinesBoard.Cell neighbour: board.neighboursOf(cell.row(), cell.col())) {
         if (neighbour.isMine()) {
           mineCount += 1;
         }
@@ -237,6 +235,7 @@ public class MinesBoardTest {
   @Test
   public void testOpen_AlreadyOpenedCell() {
     MinesBoard board = new MinesBoard(3, 3);
+    board.placeMine(1, 1);
     board.open(0, 0);
 
     assertTrue(board.open(0, 0).isEmpty());
@@ -250,12 +249,76 @@ public class MinesBoardTest {
   }
 
   @Test
+  public void testOpen_FullCountFlaggedCell() {
+    MinesBoard board = testingBoard();
+    board.flag(0, 2);
+    board.flag(2, 0);
+
+    assertEquals(board.open(1, 1), Collections.singletonList(board.get(1, 1)),
+                 "Open numbered cell");
+
+    Set<MinesBoard.Cell> expected = Sets.newHashSet(
+      board.get(0, 0), board.get(0, 1),
+      board.get(1, 0), board.get(1, 2),
+      board.get(2, 1), board.get(2, 2));
+    List<MinesBoard.Cell> opened = board.open(1, 1);
+    System.out.println("opened=" + opened);
+    assertEquals(Sets.newHashSet(opened), expected, "Open already open and full count flagged cell");
+  }
+
+  @Test
+  public void testOpen_FullCountFlaggedCellWithIncorrectFlagLocation() {
+    MinesBoard board = testingBoard();
+    board.flag(0, 1);
+
+    List<MinesBoard.Cell> opened = board.open(1, 0);
+    assertEquals(opened, Collections.singletonList(board.get(1, 0)));
+
+    opened = board.open(1, 0);
+    assertFalse(opened.contains(board.get(1, 0)), "Should not have the already opened cell");
+    assertTrue(opened.contains(board.get(2, 0)), "Should have the cell with the mine");
+    assertTrue(board.kaboom());
+    assertTrue(board.get(2, 0).isOpen());
+  }
+
+  @Test
+  public void testIsFullyFlagged() {
+    MinesBoard board = new MinesBoard(3, 3);
+    board.placeMine(0, 0);
+    board.placeMine(0, 1);
+    board.placeMine(2, 2);
+
+    board.flag(0, 0);
+    board.flag(0, 1);
+
+    MinesBoard.Cell cell = board.get(1, 1);
+    assertFalse(board.isFullyFlagged(cell), "Not full count flags");
+
+    board.flag(1, 0); // flag, but not at the correct position
+    assertTrue(board.isFullyFlagged(cell), "Full count flags");
+  }
+
+  @Test
   public void testFlag() {
     MinesBoard board = new MinesBoard(3, 3);
     assertEquals(board.flag(0, 0), State.FLAGGED);
-    assertEquals(board.flag(0, 0), State.UNOPENED);
+    assertEquals(board.flag(0, 0), State.UNOPEN);
 
     board.open(0, 0);
-    assertEquals(board.flag(0, 0), State.OPENED);
+    assertEquals(board.flag(0, 0), State.OPEN);
+  }
+
+  @Test
+  public void testEnd() {
+    MinesBoard board = new MinesBoard(8, 8, 10);
+    Iterator<MinesBoard.Cell> iterator = board.iterator();
+    while (iterator.hasNext()) {
+      MinesBoard.Cell cell = iterator.next();
+      if (!cell.isMine() && cell.isUnopen()) {
+        board.open(cell.row(), cell.col());
+      }
+    }
+
+    assertTrue(board.isSwept());
   }
 }

@@ -9,10 +9,10 @@
 package com.nwsummit.games.mines;
 
 /**
- * State of a {@link MinesBoard}'s cell.
+ * State of a {@link MinesBoard.Cell}.
  */
 enum State {
   FLAGGED,
-  OPENED,
-  UNOPENED
+  OPEN,
+  UNOPEN
 }
