@@ -21,5 +21,8 @@ tasks.named('test') {
 
   testLogging {
     events "passed", "skipped", "failed"
+
+    // gradle to show output from stdout and stderr
+    showStandardStreams = true
   }
 }
