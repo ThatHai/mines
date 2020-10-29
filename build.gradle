@@ -8,15 +8,11 @@ repositories {
 }
 
 dependencies {
-  // Use TestNG framework, also requires calling test.useTestNG() below
   testImplementation 'org.testng:testng:7.3.0'
-
-  // This dependency is used by the application.
-  implementation 'com.google.guava:guava:29.0-jre'
+  testImplementation 'com.google.guava:guava:29.0-jre'
 }
 
 application {
-    // Define the main class for the application.
   mainClass = 'com.nwsummit.games.mines.Mines'
 }
 
