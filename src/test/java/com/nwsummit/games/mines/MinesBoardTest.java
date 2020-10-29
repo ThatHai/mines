@@ -11,7 +11,6 @@ package com.nwsummit.games.mines;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
@@ -200,11 +199,11 @@ public class MinesBoardTest {
   @Test
   public void testOpen_Mine() {
     MinesBoard board = testingBoard();
-    assertNull(board.open(0, 2));
-    assertNull(board.open(2, 0));
-    assertNull(board.open(7, 5));
-    assertNull(board.open(1, 7));
-    assertNull(board.open(3, 2));
+    assertEquals(board.open(0, 2), Collections.singletonList(board.get(0, 2)));
+    assertEquals(board.open(2, 0), Collections.singletonList(board.get(2, 0)));
+    assertEquals(board.open(7, 5), Collections.singletonList(board.get(7, 5)));
+    assertEquals(board.open(1, 7), Collections.singletonList(board.get(1, 7)));
+    assertEquals(board.open(3, 2), Collections.singletonList(board.get(3, 2)));
   }
 
   @Test
@@ -320,5 +319,17 @@ public class MinesBoardTest {
     }
 
     assertTrue(board.isSwept());
+  }
+
+  @Test
+  public void testGetWronglyFlaggedCells() {
+    MinesBoard board = new MinesBoard(4, 4);
+    board.placeMine(0, 0);
+    board.placeMine(3, 3);
+
+    board.flag(1, 0); // wrongly flagged
+    board.flag(3, 3); // correctly flagged
+
+    assertEquals(board.getWronglyFlaggedCells(), Collections.singletonList(board.get(1, 0)));
   }
 }

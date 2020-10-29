@@ -130,10 +130,12 @@ class MinesBoard implements Iterable<MinesBoard.Cell> {
   }
 
   /**
-   * Opens the specified cell/square of the mines board.
+   * Opens the specified cell/square of the mines board. If a mine is opened in the
+   * process, usually be cause the specified cell to open is a mine or some squares
+   * were wrongly flagged as mine, {@link #kaboom} will be set to true.
    *
-   * @return null if the cell is a mine;
-             a collection, possibly empty, of opened cells otherwise.
+   * @see #getWronglyFlaggedCells
+   * @return the list of mines opened; empty if the cell is flagged or already open.
    */
   public List<Cell> open(int row, int col) {
     validate(row, col);
@@ -144,25 +146,20 @@ class MinesBoard implements Iterable<MinesBoard.Cell> {
       return Collections.emptyList();
     }
 
-    if (cell.isMine()) {
-      cell.state = State.OPEN;
-      kaboom = true;
-      return null;
-    }
+    // predicate to selct UNOPEN and not FLAGGED cells
+    Predicate<Cell> unopenAndNotFlagged = Predicate.not(Cell::isFlagged).and(Cell::isUnopen);
 
-    // cells opening can be seen as a breadth frist search in a graph, with cells being vertices.
     LinkedList<Cell> openedCells = new LinkedList<>();
 
-    // queue is used to store the (adjascent) cells to open at next iteration
+    // cells opening is like breadth frist search in a graph, with cells being vertices,
+    // hence a queue is used to store the (adjascent) cells to work on at next iteration
     LinkedList<Cell> queue = new LinkedList<>();
-
-    Predicate<Cell> unopenedAndNotFlagged = Predicate.not(Cell::isFlagged).and(Cell::isUnopen);
     if (cell.state == State.UNOPEN) {
       queue.add(cell);
     } else {
       // already OPENED then it must be fully flagged, => start by opening its UNOPENED
       // neighours because the algo doesn't open neighbours of a numbered cell
-      queue.addAll(neighboursOf(cell, unopenedAndNotFlagged));
+      queue.addAll(neighboursOf(cell, unopenAndNotFlagged));
     }
 
     // 1. if the cell to open is numbered (value 1..8), then cells opening stops there
@@ -179,16 +176,33 @@ class MinesBoard implements Iterable<MinesBoard.Cell> {
       unopen -= 1;
       if (cell.isMine()) {
         kaboom = true;
-        break; // game over
+        break; // game over, no need to open more
       }
 
       if (cell.value() == 0) {
-        queue.addAll(neighboursOf(cell, unopenedAndNotFlagged)); // to work on next
+        queue.addAll(neighboursOf(cell, unopenAndNotFlagged)); // to work on next
       }
     }
     return openedCells;
   }
 
+  /**
+   * Returns the cells wrongly flagged as being a mine.
+   */
+  public List<Cell> getWronglyFlaggedCells() {
+    LinkedList<Cell> list = new LinkedList<>();
+    for (int r = 0; r < rows; r++) {
+      for (int c = 0; c < columns; c++) {
+        if (board[r][c].isFlagged() && !board[r][c].isMine())
+          list.add(board[r][c]);
+      }
+    }
+    return list;
+  }
+
+  /**
+   * Returns true if a mine has been opened, i.e. game over; false otherwise.
+   */
   public boolean kaboom() {
     return kaboom;
   }
