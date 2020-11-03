@@ -49,6 +49,9 @@ class MinesBoard implements Iterable<MinesBoard.Cell> {
    */
   private int unopen;
 
+  /**
+   * True if a mine has been triggered.
+   */
   private boolean kaboom;
 
   // for testing
@@ -66,6 +69,7 @@ class MinesBoard implements Iterable<MinesBoard.Cell> {
         board[r][c] = new Cell(r, c);
       }
     }
+    unopen = rows * columns;
   }
 
   /**
@@ -82,7 +86,6 @@ class MinesBoard implements Iterable<MinesBoard.Cell> {
     checkArgument(mines > 0 && mines < maxCells,
                   "Invalid 0 < mines=%d < (rows x colums)=%d", mines, maxCells);
     placeMines(mines);
-    unopen = maxCells - mines;
   }
 
   /**
@@ -113,6 +116,7 @@ class MinesBoard implements Iterable<MinesBoard.Cell> {
     for (Cell adjCell: neighboursOf(mine, Predicate.not(Cell::isMine))) {
       adjCell.value += 1;
     }
+    unopen--;
   }
 
   // visible for testing
@@ -201,19 +205,17 @@ class MinesBoard implements Iterable<MinesBoard.Cell> {
   }
 
   /**
-   * Returns true if a mine has been opened, i.e. game over; false otherwise.
+   * Whether the game has ended. The game ends when either
+   * <ul>
+   * <li>A mine is accidentally triggered</li>
+   * <li>All non-mine cells have been opened</li>
+   * </ul>
    */
-  public boolean kaboom() {
-    return kaboom;
-  }
-
-  /**
-   * Whether all the mines have been swept.
-   */
-  public boolean isSwept() {
-    if (unopen < 0)
+  public boolean ended() {
+    if (unopen < 0) {
       throw new IllegalStateException("Unopen count: " + unopen);
-    return unopen == 0;
+    }
+    return kaboom || unopen == 0;
   }
 
   // visible for testing

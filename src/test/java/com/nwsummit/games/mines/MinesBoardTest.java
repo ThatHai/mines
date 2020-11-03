@@ -276,7 +276,7 @@ public class MinesBoardTest {
     opened = board.open(1, 0);
     assertFalse(opened.contains(board.get(1, 0)), "Should not have the already opened cell");
     assertTrue(opened.contains(board.get(2, 0)), "Should have the cell with the mine");
-    assertTrue(board.kaboom());
+    assertTrue(board.ended());
     assertTrue(board.get(2, 0).isOpen());
   }
 
@@ -308,9 +308,22 @@ public class MinesBoardTest {
   }
 
   @Test
-  public void testEnd() {
+  public void testEnded() {
     MinesBoard board = new MinesBoard(8, 8, 10);
+
+    // open several non-mines cells
+    int count = 0;
     Iterator<MinesBoard.Cell> iterator = board.iterator();
+    while (iterator.hasNext() && count < 5) {
+      MinesBoard.Cell cell = iterator.next();
+      if (cell.value() > 0) {
+        board.open(cell.row(), cell.col());
+      }
+    }
+    assertFalse(board.ended());
+
+    // iterate through the board and open all non-mine cells
+    iterator = board.iterator();
     while (iterator.hasNext()) {
       MinesBoard.Cell cell = iterator.next();
       if (!cell.isMine() && cell.isUnopen()) {
@@ -318,7 +331,7 @@ public class MinesBoardTest {
       }
     }
 
-    assertTrue(board.isSwept());
+    assertTrue(board.ended());
   }
 
   @Test
