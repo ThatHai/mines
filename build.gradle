@@ -1,9 +1,9 @@
 plugins {
-  // Apply the application plugin to add support for building a CLI application in Java.
   id 'application'
-
   id 'org.openjfx.javafxplugin' version '0.0.8'
 }
+
+mainClassName = 'com.nwsummit.games.mines.Mines'
 
 repositories {
   mavenCentral()
@@ -17,10 +17,6 @@ javafx {
 dependencies {
   testImplementation 'org.testng:testng:7.3.0'
   testImplementation 'com.google.guava:guava:29.0-jre'
-}
-
-application {
-  mainClass = 'com.nwsummit.games.mines.Mines'
 }
 
 tasks.named('test') {
