@@ -3,7 +3,10 @@ plugins {
   id 'org.openjfx.javafxplugin' version '0.0.8'
 }
 
-mainClassName = 'com.nwsummit.games.mines.Mines'
+application {
+  mainModule = 'games.mines'
+  mainClass = 'com.nwsummit.games.mines.Mines'
+}
 
 repositories {
   mavenCentral()
