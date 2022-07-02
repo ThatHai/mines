@@ -14,13 +14,14 @@ import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
-import com.google.common.collect.Sets;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -224,11 +225,11 @@ public class MinesBoardTest {
   @Test
   public void testOpen_EmptyCellUnconnected() {
     MinesBoard board = testingBoard();
-    assertEquals(Sets.newHashSet(board.open(0, 0)),
-                 Sets.newHashSet(board.get(0, 0),
-                                 board.get(0, 1),
-                                 board.get(1, 0),
-                                 board.get(1, 1)));
+    assertEquals(new HashSet<>(board.open(0, 0)),
+                 new HashSet<>(Arrays.asList(board.get(0, 0),
+                                             board.get(0, 1),
+                                             board.get(1, 0),
+                                             board.get(1, 1))));
   }
 
   @Test
@@ -256,13 +257,13 @@ public class MinesBoardTest {
     assertEquals(board.open(1, 1), Collections.singletonList(board.get(1, 1)),
                  "Open numbered cell");
 
-    Set<MinesBoard.Cell> expected = Sets.newHashSet(
-      board.get(0, 0), board.get(0, 1),
-      board.get(1, 0), board.get(1, 2),
-      board.get(2, 1), board.get(2, 2));
+    Set<MinesBoard.Cell> expected = new HashSet<>(
+        Arrays.asList(board.get(0, 0), board.get(0, 1),
+                      board.get(1, 0), board.get(1, 2),
+                      board.get(2, 1), board.get(2, 2)));
     List<MinesBoard.Cell> opened = board.open(1, 1);
     System.out.println("opened=" + opened);
-    assertEquals(Sets.newHashSet(opened), expected, "Open already open and full count flagged cell");
+    assertEquals(new HashSet<>(opened), expected, "Open already open and full count flagged cell");
   }
 
   @Test
